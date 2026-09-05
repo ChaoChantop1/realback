@@ -105,6 +105,12 @@ interface HabitDao {
     @Query("SELECT * FROM checkmarks WHERE epochDay >= :sinceEpochDay ORDER BY epochDay ASC")
     fun observeCheckmarksSince(sinceEpochDay: Long): Flow<List<CheckmarkEntity>>
 
+    @Query("SELECT * FROM habits")
+    suspend fun all(): List<HabitEntity>
+
+    @Query("SELECT * FROM checkmarks")
+    suspend fun allCheckmarks(): List<CheckmarkEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(habit: HabitEntity): Long
 
@@ -116,6 +122,15 @@ interface HabitDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCheckmark(entry: CheckmarkEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllCheckmarks(entries: List<CheckmarkEntity>)
+
+    @Query("DELETE FROM habits")
+    suspend fun clearHabits()
+
+    @Query("DELETE FROM checkmarks")
+    suspend fun clearCheckmarks()
 }
 
 @Dao
@@ -147,6 +162,12 @@ interface LimitRuleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(rule: AppLimitRuleEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllRules(rules: List<AppLimitRuleEntity>)
+
+    @Query("DELETE FROM app_limit_rules")
+    suspend fun clearRules()
+
     @Query("DELETE FROM app_limit_rules WHERE packageName = :packageName")
     suspend fun remove(packageName: String)
 }
@@ -175,6 +196,15 @@ interface GrowthDao {
     /** Atomically adds [delta] to the day's points (call ensureDay first). */
     @Query("UPDATE growth_points SET points = points + :delta WHERE epochDay = :epochDay")
     suspend fun addPoints(epochDay: Long, delta: Double)
+
+    @Query("SELECT * FROM growth_points ORDER BY epochDay ASC")
+    suspend fun allGrowthPoints(): List<GrowthPointsEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllGrowthPoints(entries: List<GrowthPointsEntity>)
+
+    @Query("DELETE FROM growth_points")
+    suspend fun clearGrowth()
 }
 
 @Database(

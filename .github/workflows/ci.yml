@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -52,6 +53,55 @@ jobs:
 
       - name: Build debug APK
         run: gradle :app-android:assembleDebug --console=plain 2>&1 | tee build.log
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: realback-debug-apk
+          path: app-android/build/outputs/apk/debug/*.apk
+
+      - name: Annotate errors
+        if: failure()
+        run: |
+          grep -E '^e:|error:|FAILED|Execution failed|Caused by|^FAILURE' build.log | head -40 \
+            | cut -c1-220 | sed 's/%/%25/g; s/^/::error::/'
+
+  release-build:
+    name: Release APK (tags)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      # Debug-signed release APK (see build.gradle.kts note) — installable,
+      # must be replaced with a real keystore before any store distribution.
+      - name: Build release APK
+        run: gradle :app-android:assembleRelease --console=plain 2>&1 | tee build.log
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: realback-release-apk
+          path: app-android/build/outputs/apk/release/*.apk
+
+      - name: Attach APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app-android/build/outputs/apk/release/*.apk
+          generate_release_notes: true
 
       - name: Annotate errors
         if: failure()

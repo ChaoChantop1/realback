@@ -21,6 +21,9 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // CI/GitHub-release builds are debug-signed for installability.
+            // Replace with a real keystore before Play Store distribution.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- M0: plain platform theme; Material 3 dynamic theming arrives with the design pass in M1. -->
+    <!-- Plain platform theme; Material 3 dynamic theming arrives with a later design pass. -->
     <style name="Theme.RealBack" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Launcher icon palette: calm forest green. -->
+    <color name="ic_launcher_background">#2E7D32</color>
 </resources>

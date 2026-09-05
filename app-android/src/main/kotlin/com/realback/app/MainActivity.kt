@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -28,6 +29,7 @@ import com.realback.app.ui.DashboardScreen
 import com.realback.app.ui.FocusScreen
 import com.realback.app.ui.HabitsScreen
 import com.realback.app.ui.LimitsScreen
+import com.realback.app.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +71,12 @@ fun RealBackRoot() {
                         icon = { Icon(Icons.Filled.List, contentDescription = null) },
                         label = { Text("限额") },
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == 4,
+                        onClick = { selectedTab = 4 },
+                        icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                        label = { Text("设置") },
+                    )
                 }
             },
         ) { padding ->
@@ -78,7 +86,8 @@ fun RealBackRoot() {
                         0 -> DashboardScreen()
                         1 -> HabitsScreen()
                         2 -> FocusScreen()
-                        else -> LimitsScreen()
+                        3 -> LimitsScreen()
+                        else -> SettingsScreen()
                     }
                 }
             }

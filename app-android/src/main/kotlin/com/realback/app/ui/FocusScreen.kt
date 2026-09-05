@@ -26,11 +26,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,39 +39,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.realback.core.growth.AchievementEngine
-import kotlinx.coroutines.delay
 
 /**
- * M4 focus & growth screen: focus timer feeding the growth loop.
+ * M4/M5 focus & growth screen: focus timer feeding the growth loop.
  *
- * Focus is a timer, not a lock (design red line #3): leaving the app or
- * using the phone does not cancel it — the minutes still count when the
- * session completes.
+ * Focus is a timer, not a lock (design red line #3). Since M5 the session is
+ * timestamp-driven in the ViewModel: backgrounding the app does not stop it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FocusScreen(vm: GrowthViewModel = viewModel()) {
     val state by vm.state.collectAsState()
-    var running by remember { mutableStateOf(false) }
-    var remainingSec by remember { mutableIntStateOf(0) }
+    val session by vm.session.collectAsState()
+    val remainingSec by vm.remainingSec.collectAsState()
     var plannedMinutes by remember { mutableIntStateOf(25) }
-
-    /** Minutes actually focused in this session (elapsed = planned - remaining). */
-    fun elapsedMinutes(): Int = (plannedMinutes * 60 - remainingSec + 59) / 60
-
-    // One-second ticker; survives recomposition, pauses with the app process
-    // (accepted for MVP; a chronometer-based service is the M5 hardening item).
-    LaunchedEffect(running) {
-        while (running) {
-            delay(1_000)
-            remainingSec -= 1
-            if (remainingSec <= 0) {
-                remainingSec = 0
-                vm.recordFocus(elapsedMinutes())
-                running = false
-            }
-        }
-    }
+    val running = session != null
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("专注 · 成长") }) },
@@ -89,20 +69,12 @@ fun FocusScreen(vm: GrowthViewModel = viewModel()) {
             GrowthCard(state)
             FocusTimerCard(
                 running = running,
-                remainingSec = remainingSec,
-                plannedMinutes = plannedMinutes,
+                remainingSec = if (running) remainingSec else -1,
+                plannedMinutes = session?.plannedMinutes ?: plannedMinutes,
                 focusMinutesToday = state.focusMinutesToday,
                 onSelectPreset = { if (!running) plannedMinutes = it },
-                onStart = {
-                    remainingSec = plannedMinutes * 60
-                    running = true
-                },
-                onAbandon = {
-                    running = false
-                    val elapsed = elapsedMinutes()
-                    if (elapsed > 0) vm.recordFocus(elapsed)
-                    remainingSec = 0
-                },
+                onStart = { vm.startFocus(plannedMinutes) },
+                onAbandon = { vm.abandonFocus() },
             )
             AchievementsCard(state.achievements)
         }
@@ -169,7 +141,7 @@ private fun FocusTimerCard(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = if (running) {
+                text = if (running && remainingSec >= 0) {
                     String.format("%02d:%02d", remainingSec / 60, remainingSec % 60)
                 } else {
                     String.format("%02d:00", plannedMinutes)
