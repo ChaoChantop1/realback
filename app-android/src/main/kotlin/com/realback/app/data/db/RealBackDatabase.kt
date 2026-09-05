@@ -102,6 +102,9 @@ interface HabitDao {
     @Query("SELECT * FROM habits WHERE archived = 0 ORDER BY createdAtEpochDay ASC")
     fun observeActive(): Flow<List<HabitEntity>>
 
+    @Query("SELECT * FROM checkmarks WHERE epochDay >= :sinceEpochDay ORDER BY epochDay ASC")
+    fun observeCheckmarksSince(sinceEpochDay: Long): Flow<List<CheckmarkEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(habit: HabitEntity): Long
 

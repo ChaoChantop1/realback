@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.Icon
@@ -23,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.realback.app.ui.DashboardScreen
+import com.realback.app.ui.HabitsScreen
 import com.realback.app.ui.LimitsScreen
 
 class MainActivity : ComponentActivity() {
@@ -50,6 +52,12 @@ fun RealBackRoot() {
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
+                        icon = { Icon(Icons.Filled.CheckCircle, contentDescription = null) },
+                        label = { Text("习惯") },
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
                         icon = { Icon(Icons.Filled.List, contentDescription = null) },
                         label = { Text("限额") },
                     )
@@ -60,6 +68,7 @@ fun RealBackRoot() {
                 Box(modifier = Modifier.padding(padding)) {
                     when (selectedTab) {
                         0 -> DashboardScreen()
+                        1 -> HabitsScreen()
                         else -> LimitsScreen()
                     }
                 }
