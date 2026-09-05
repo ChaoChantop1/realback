@@ -59,7 +59,7 @@ jobs:
         run: |
           FOUND=$(find . -name '*.apk' -not -path './.git/*' | head -10)
           if [ -z "$FOUND" ]; then
-            echo "::error::NO APK FOUND; build dir listing: $(ls -R app-android/build/outputs 2>/dev/null | head -20 | tr '\n' '|')"
+            echo "::error::NO APK FOUND; build.log tail: $(tail -c 700 build.log | tr '\n' '|')"
           else
             echo "::warning::APKs found: $(echo "$FOUND" | tr '\n' '|')"
           fi
