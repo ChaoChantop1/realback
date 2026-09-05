@@ -138,6 +138,9 @@ interface LimitRuleDao {
     @Query("SELECT * FROM app_limit_rules")
     suspend fun all(): List<AppLimitRuleEntity>
 
+    @Query("SELECT * FROM app_limit_rules")
+    fun observeAll(): Flow<List<AppLimitRuleEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(rule: AppLimitRuleEntity)
 

@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.realback.app.RealBackApp
 import com.realback.app.data.db.toDomain
 import com.realback.app.service.UsageTrackingService
+import com.realback.app.system.BatteryOptimizationHelper
 import com.realback.app.usage.UsageStatsCollector
+import com.realback.app.util.appLabel
 import com.realback.core.usage.DashboardStats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,7 +18,7 @@ import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 
 /**
- * M1 dashboard state: today's total screen time, unlock count and top apps.
+ * M1/M2 dashboard state: today's totals, top apps and system-health flags.
  */
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -30,6 +32,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     data class State(
         val permissionGranted: Boolean = false,
+        val batteryOptimizationIgnored: Boolean = false,
         val loaded: Boolean = false,
         val totalMillis: Long = 0L,
         val totalOpens: Int = 0,
@@ -41,21 +44,24 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     private val todayEpochDay: Long = LocalDate.now().toEpochDay()
 
     private val permissionGranted = MutableStateFlow(false)
+    private val batteryOptimizationIgnored = MutableStateFlow(false)
 
     val state: StateFlow<State> = combine(
         db.usageDao().observeForDay(todayEpochDay),
         permissionGranted,
-    ) { rows, granted ->
+        batteryOptimizationIgnored,
+    ) { rows, granted, battery ->
         val usage = rows.map { it.toDomain() }
         val total = DashboardStats.totalMillis(usage)
         State(
             permissionGranted = granted,
+            batteryOptimizationIgnored = battery,
             loaded = true,
             totalMillis = total,
             totalOpens = DashboardStats.totalOpens(usage),
             topApps = DashboardStats.topApps(usage, TOP_APP_COUNT).map { day ->
                 AppRow(
-                    label = appLabel(day.packageName),
+                    label = appLabel(getApplication(), day.packageName),
                     packageName = day.packageName,
                     millis = day.foregroundMillis,
                     opens = day.openCount,
@@ -65,19 +71,14 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
-    /** Re-check the special permission and (re)start tracking on every resume. */
+    /** Re-check system permissions and (re)start tracking on every resume. */
     fun onScreenResumed() {
+        val app = getApplication<Application>()
         permissionGranted.value = collector.hasUsageAccess()
+        batteryOptimizationIgnored.value = BatteryOptimizationHelper.isIgnoring(app)
         if (permissionGranted.value) {
-            UsageTrackingService.start(getApplication())
+            UsageTrackingService.start(app)
         }
-    }
-
-    private fun appLabel(packageName: String): String = try {
-        val pm = getApplication<Application>().packageManager
-        pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
-    } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
-        packageName
     }
 
     private companion object {

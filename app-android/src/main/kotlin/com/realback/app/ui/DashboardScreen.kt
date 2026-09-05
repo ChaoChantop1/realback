@@ -42,9 +42,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.realback.app.system.BatteryOptimizationHelper
+import com.realback.app.util.formatDurationMillis
 
 /**
- * M1 dashboard: today's screen time, unlock count and top-5 apps.
+ * M1/M2 dashboard: today's screen time, unlock count, top-5 apps and
+ * system-health guidance (battery-optimization whitelist).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +92,9 @@ fun DashboardScreen(vm: DashboardViewModel = viewModel()) {
                     context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 })
             } else {
+                if (!state.batteryOptimizationIgnored) {
+                    BatteryCard(onFix = { BatteryOptimizationHelper.requestIgnore(context) })
+                }
                 SummaryCard(state)
                 TopAppsCard(state)
             }
@@ -120,6 +126,29 @@ private fun PermissionCard(onGrant: () -> Unit) {
 }
 
 @Composable
+private fun BatteryCard(onFix: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "让守护更可靠：允许后台运行",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = "部分手机系统会清理后台，导致统计中断。建议在系统弹窗中允许回真「忽略电池优化」，以保证统计与限额提醒持续生效。",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(onClick = onFix) {
+                Text("去设置")
+            }
+        }
+    }
+}
+
+@Composable
 private fun SummaryCard(state: DashboardViewModel.State) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -128,7 +157,7 @@ private fun SummaryCard(state: DashboardViewModel.State) {
         ) {
             Text("今日屏幕时间", style = MaterialTheme.typography.titleMedium)
             Text(
-                text = formatMillis(state.totalMillis),
+                text = formatDurationMillis(state.totalMillis),
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold,
             )
@@ -151,7 +180,7 @@ private fun TopAppsCard(state: DashboardViewModel.State) {
             Text("今日应用排行", style = MaterialTheme.typography.titleMedium)
             if (state.topApps.isEmpty()) {
                 Text(
-                    text = if (state.loaded) "暂无数据，统计每 15 分钟刷新一次，稍后再来看看" else "加载中…",
+                    text = if (state.loaded) "暂无数据，统计每 5 分钟刷新一次，稍后再来看看" else "加载中…",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -178,7 +207,7 @@ private fun AppUsageRow(app: DashboardViewModel.AppRow) {
             )
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = formatMillis(app.millis),
+                text = formatDurationMillis(app.millis),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -198,16 +227,5 @@ private fun AppUsageRow(app: DashboardViewModel.AppRow) {
                     .background(MaterialTheme.colorScheme.primary),
             )
         }
-    }
-}
-
-/** Human-readable duration in Chinese, e.g. "3小时25分钟". */
-internal fun formatMillis(millis: Long): String {
-    val totalMinutes = millis / 60_000L
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return when {
-        hours > 0 -> "${hours}小时${minutes}分钟"
-        else -> "${minutes}分钟"
     }
 }

@@ -3,4 +3,7 @@
     <string name="app_name">回真 RealBack</string>
     <string name="usage_tracking_channel">用量统计</string>
     <string name="usage_tracking_title">正在守护你的注意力</string>
+    <string name="intervention_channel">限额提醒</string>
+    <string name="intervention_title">时间到了</string>
+    <string name="intervention_text_exceeded">「%1$s」今日已用 %2$s，超过你设定的限额 %3$s</string>
 </resources>
