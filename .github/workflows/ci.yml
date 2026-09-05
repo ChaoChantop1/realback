@@ -54,6 +54,16 @@ jobs:
       - name: Build debug APK
         run: gradle :app-android:assembleDebug --console=plain 2>&1 | tee build.log
 
+      - name: Locate APKs (diagnostic)
+        if: always()
+        run: |
+          FOUND=$(find . -name '*.apk' -not -path './.git/*' | head -10)
+          if [ -z "$FOUND" ]; then
+            echo "::error::NO APK FOUND; build dir listing: $(ls -R app-android/build/outputs 2>/dev/null | head -20 | tr '\n' '|')"
+          else
+            echo "::warning::APKs found: $(echo "$FOUND" | tr '\n' '|')"
+          fi
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -90,6 +100,16 @@ jobs:
       # must be replaced with a real keystore before any store distribution.
       - name: Build release APK
         run: gradle :app-android:assembleRelease --console=plain 2>&1 | tee build.log
+
+      - name: Locate release APK (diagnostic)
+        if: always()
+        run: |
+          FOUND=$(find . -name '*.apk' -not -path './.git/*' | head -10)
+          if [ -z "$FOUND" ]; then
+            echo "::error::NO RELEASE APK; outputs listing: $(ls -R app-android/build/outputs 2>/dev/null | head -20 | tr '\n' '|')"
+          else
+            echo "::warning::Release APKs found: $(echo "$FOUND" | tr '\n' '|')"
+          fi
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
