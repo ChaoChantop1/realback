@@ -7,7 +7,7 @@
 
 ## 项目状态
 
-**MVP（M0–M5）全部完成，v0.1.0 发布中。** 路线图：
+**MVP（M0–M5）全部完成。** 路线图：
 
 | 里程碑 | 内容 | 状态 |
 |--------|------|------|
@@ -23,6 +23,27 @@
 - 每次 push 到 main：CI 构建的 debug APK 在 Actions 产物中
 - 推送 `v*` 标签：CI 自动构建 release APK（R8 混淆）并附到 GitHub Release
 - 当前 release APK 为 debug 签名（便于安装体验）；正式商店分发前需替换为专属 keystore（见 `app-android/build.gradle.kts` 注释）
+- **首个可用版本是 v0.1.1**。v0.1.0 的 Release 没有附带 APK，因为它的构建实际失败了（见下文「CI 教训」），请勿使用
+
+### CI 教训：管道吞掉了构建失败（已修复）
+
+**v0.1.0 期间的所有"CI 全绿"都是假象**：Android 模块自 M1 起从未真正编译成功过。
+
+根因：CI 步骤写作 `gradle ... | tee build.log`，而 GitHub Actions 默认 shell（无 `pipefail`）的管道退出码取自**最后一个命令**（tee，永远成功）。Gradle 编译失败被静默吞掉，job 报绿——直到发布时发现 Release 没有附带任何 APK 才暴露。
+
+连锁修复（共 5 轮，全部是此前被掩盖的真实错误）：
+
+1. CI 步骤加 `set -o pipefail`，失败如实传播
+2. `Icons.Filled.Schedule` 不在 material-icons-core 基础图标集 → 换 `DateRange`
+3. `FocusScreen` 缺 `height` import
+4. `LimitsScreen` 对话框 lambda 误用 `)` 收尾；测试 Long→Int 类型不匹配
+5. core 属性初始化顺序（`ticker` 在使用之后声明）；习惯强度分窗口缺陷——固定 180 天回溯把习惯创建前的日子算作"未完成"，新习惯分数被惩罚，改为从最早打卡记录起算
+
+**沉淀的规则**（已写入本仓库的 CI 配置）：
+
+- 凡 `命令 | tee 日志` 的 CI 步骤必须 `set -o pipefail`，否则退出码不可信
+- 验收标准是「**产物存在**」（APK 出现在 artifacts/Release 附件中），不是绿色对勾
+- tag 触发的 Release job 直接以 APK 路径为上传输入——构建失败时无产物可传，发布不可能再假绿
 
 ### 备份格式
 
