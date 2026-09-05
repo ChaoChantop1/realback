@@ -28,7 +28,8 @@ class GrowthEngineTest {
     fun `resolve maps points to level and progress`() {
         val g = GrowthEngine.resolve(160.0)
         assertEquals(2, g.level)
-        assertEquals(0.6, g.levelProgress, 1e-9)
+        // Level 2 spans [100, 220) -> (160-100)/(220-100) = 0.5
+        assertEquals(0.5, g.levelProgress, 1e-9)
 
         val fresh = GrowthEngine.resolve(0.0)
         assertEquals(1, fresh.level)

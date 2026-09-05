@@ -148,7 +148,7 @@ interface GrowthDao {
     suspend fun pointsForDay(epochDay: Long): Double
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun recordDayPoints(epochDay: Long, points: Double)
+    suspend fun upsertDayPoints(entry: GrowthPointsEntity)
 }
 
 @Database(

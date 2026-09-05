@@ -25,7 +25,13 @@ jobs:
           gradle-version: "8.10.2"
 
       - name: Run core unit tests
-        run: gradle :core:test
+        run: gradle :core:test --console=plain 2>&1 | tee build.log
+
+      - name: Annotate errors
+        if: failure()
+        run: |
+          grep -E '^e:|error:|FAILED|Execution failed|Caused by|^FAILURE' build.log | head -40 \
+            | cut -c1-220 | sed 's/%/%25/g; s/^/::error::/'
 
   android-build:
     name: Android debug build
@@ -45,4 +51,10 @@ jobs:
           gradle-version: "8.10.2"
 
       - name: Build debug APK
-        run: gradle :app-android:assembleDebug
+        run: gradle :app-android:assembleDebug --console=plain 2>&1 | tee build.log
+
+      - name: Annotate errors
+        if: failure()
+        run: |
+          grep -E '^e:|error:|FAILED|Execution failed|Caused by|^FAILURE' build.log | head -40 \
+            | cut -c1-220 | sed 's/%/%25/g; s/^/::error::/'
