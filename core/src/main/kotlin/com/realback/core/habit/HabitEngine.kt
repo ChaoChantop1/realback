@@ -49,9 +49,14 @@ object HabitEngine {
         return HabitScore.currentStreak(dense)
     }
 
-    /** Habit strength in [0.0, 1.0] over the look-back window (dense). */
+    /**
+     * Habit strength in [0.0, 1.0]. The dense window starts at the earliest
+     * recorded entry (the habit's lifetime) — days before the habit existed
+     * must not count as misses, or new habits would be punished.
+     */
     fun score(entries: List<Checkmark>, todayEpochDay: Long): Double {
-        val from = todayEpochDay - HISTORY_DAYS + 1
+        if (entries.isEmpty()) return 0.0
+        val from = entries.minOf { it.epochDay }
         val dense = denseValues(entries, from, todayEpochDay)
         return HabitScore.compute(dense)
     }
