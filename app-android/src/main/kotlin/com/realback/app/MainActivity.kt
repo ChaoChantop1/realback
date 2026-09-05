@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -24,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.realback.app.ui.DashboardScreen
+import com.realback.app.ui.FocusScreen
 import com.realback.app.ui.HabitsScreen
 import com.realback.app.ui.LimitsScreen
 
@@ -58,6 +60,12 @@ fun RealBackRoot() {
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
+                        icon = { Icon(Icons.Filled.Schedule, contentDescription = null) },
+                        label = { Text("专注") },
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        onClick = { selectedTab = 3 },
                         icon = { Icon(Icons.Filled.List, contentDescription = null) },
                         label = { Text("限额") },
                     )
@@ -69,6 +77,7 @@ fun RealBackRoot() {
                     when (selectedTab) {
                         0 -> DashboardScreen()
                         1 -> HabitsScreen()
+                        2 -> FocusScreen()
                         else -> LimitsScreen()
                     }
                 }

@@ -71,12 +71,19 @@ class HabitsViewModel(app: Application) : AndroidViewModel(app) {
             val existing = db.habitDao()
                 .checkmarksFor(habitId, todayEpochDay)
                 .firstOrNull { it.epochDay == todayEpochDay }
+            val nowChecked = !(existing?.value ?: false)
             db.habitDao().upsertCheckmark(
                 CheckmarkEntity(
                     habitId = habitId,
                     epochDay = todayEpochDay,
-                    value = !(existing?.value ?: false),
+                    value = nowChecked,
                 ),
+            )
+            // Growth loop (M4): a checkmark is worth ±10 points, reversible.
+            db.growthDao().ensureDay(todayEpochDay)
+            db.growthDao().addPoints(
+                todayEpochDay,
+                if (nowChecked) CHECKMARK_POINTS else -CHECKMARK_POINTS,
             )
         }
     }
@@ -101,5 +108,9 @@ class HabitsViewModel(app: Application) : AndroidViewModel(app) {
         is HabitSchedule.Daily -> "每天"
         is HabitSchedule.WeeklyTimes -> "每周 ${s.timesPerWeek} 次"
         is HabitSchedule.IntervalDays -> "每 ${s.days} 天一次"
+    }
+
+    private companion object {
+        const val CHECKMARK_POINTS = 10.0
     }
 }

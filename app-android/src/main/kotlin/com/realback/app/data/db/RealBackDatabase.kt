@@ -159,8 +159,22 @@ interface GrowthDao {
     @Query("SELECT COALESCE(points, 0) FROM growth_points WHERE epochDay = :epochDay")
     suspend fun pointsForDay(epochDay: Long): Double
 
+    @Query("SELECT COALESCE(SUM(points), 0) FROM growth_points")
+    fun observeTotalPoints(): Flow<Double>
+
+    @Query("SELECT COALESCE(points, 0) FROM growth_points WHERE epochDay = :epochDay")
+    fun observePointsForDay(epochDay: Long): Flow<Double>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertDayPoints(entry: GrowthPointsEntity)
+
+    /** Creates the day's row if missing (values preserved if it exists). */
+    @Query("INSERT OR IGNORE INTO growth_points (epochDay, points) VALUES (:epochDay, 0)")
+    suspend fun ensureDay(epochDay: Long)
+
+    /** Atomically adds [delta] to the day's points (call ensureDay first). */
+    @Query("UPDATE growth_points SET points = points + :delta WHERE epochDay = :epochDay")
+    suspend fun addPoints(epochDay: Long, delta: Double)
 }
 
 @Database(
