@@ -1,0 +1,11 @@
+# Normalize line endings: LF in repo, native on checkout for sources.
+* text=auto
+*.kt text
+*.kts text
+*.xml text
+*.toml text
+*.yml text
+*.md text
+*.pro text
+*.properties text
+LICENSE text
