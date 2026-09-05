@@ -123,8 +123,14 @@ interface UsageDao {
     @Query("SELECT * FROM app_usage_day WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay ASC")
     suspend fun usageRange(from: Long, to: Long): List<AppUsageDayEntity>
 
+    @Query("SELECT * FROM app_usage_day WHERE epochDay = :epochDay ORDER BY foregroundMillis DESC")
+    fun observeForDay(epochDay: Long): Flow<List<AppUsageDayEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(usage: AppUsageDayEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(usages: List<AppUsageDayEntity>)
 }
 
 @Dao
