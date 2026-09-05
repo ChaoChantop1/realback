@@ -53,6 +53,13 @@ class GrowthViewModel(app: Application) : AndroidViewModel(app) {
     private val _session = MutableStateFlow<FocusSession?>(null)
     val session: StateFlow<FocusSession?> = _session
 
+    private val ticker = flow {
+        while (true) {
+            emit(Unit)
+            delay(1_000)
+        }
+    }
+
     /** Remaining whole seconds of the session; -1 when idle. */
     val remainingSec: StateFlow<Int> = _session
         .combine(ticker) { s, _ -> s }
@@ -70,13 +77,6 @@ class GrowthViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), -1)
-
-    private val ticker = flow {
-        while (true) {
-            emit(Unit)
-            delay(1_000)
-        }
-    }
 
     val state: StateFlow<State> = combine(
         db.growthDao().observeTotalPoints(),
