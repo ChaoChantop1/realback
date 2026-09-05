@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- M0: plain platform theme; Material 3 dynamic theming arrives with the design pass in M1. -->
+    <style name="Theme.RealBack" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

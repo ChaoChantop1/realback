@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">回真 RealBack</string>
+    <string name="usage_tracking_channel">用量统计</string>
+    <string name="usage_tracking_title">正在守护你的注意力</string>
+</resources>
