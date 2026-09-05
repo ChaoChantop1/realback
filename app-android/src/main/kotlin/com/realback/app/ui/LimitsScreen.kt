@@ -165,7 +165,7 @@ private fun SetLimitDialog(
                     }
                 }
             }
-        ),
+        },
         confirmButton = {},
         dismissButton = {
             Row {

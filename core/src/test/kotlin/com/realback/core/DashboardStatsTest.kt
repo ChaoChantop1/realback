@@ -13,7 +13,7 @@ class DashboardStatsTest {
                 packageName = pkg,
                 epochDay = 300L,
                 foregroundMillis = mins * 60_000L,
-                openCount = mins / 10,
+                openCount = (mins / 10).toInt(),
             )
         }
 
