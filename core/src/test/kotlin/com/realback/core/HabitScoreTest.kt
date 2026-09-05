@@ -33,7 +33,10 @@ class HabitScoreTest {
     @Test
     fun `score is resilient to a few misses`() {
         val perfect = HabitScore.compute(entries(List(60) { true }))
-        val withMisses = HabitScore.compute(entries(List(60) { true }.also { it[3] = false; it[7] = false }))
+        val history = List(60) { true }.toMutableList()
+        history[3] = false
+        history[7] = false
+        val withMisses = HabitScore.compute(entries(history))
         // Two misses in 60 days should barely dent the score.
         assert(perfect - withMisses < 0.15) { "drop too large: ${perfect - withMisses}" }
     }

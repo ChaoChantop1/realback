@@ -16,9 +16,3 @@ dependencies {
 
     testImplementation(libs.junit)
 }
-
-tasks.withType<Test> {
-    testLogging {
-        events("passed", "skipped", "failed")
-    }
-}
