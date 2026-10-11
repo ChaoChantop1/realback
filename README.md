@@ -24,6 +24,11 @@
 - 推送 `v*` 标签：CI 自动构建 release APK（R8 混淆）并附到 GitHub Release
 - 当前 release APK 为 debug 签名（便于安装体验）；正式商店分发前需替换为专属 keystore（见 `app-android/build.gradle.kts` 注释）
 - **首个可用版本是 v0.1.1**。v0.1.0 的 Release 没有附带 APK，因为它的构建实际失败了（见下文「CI 教训」），请勿使用
+- **发布前先改 `gradle.properties`**：APK 的版本号唯一来源是那里的 `realback.versionName` / `realback.versionCode`，`versionCode` 必须递增否则已安装的应用无法覆盖升级。标签与声明版本不一致时 release job 会直接失败（v0.1.1 曾发布过一个自报 0.1.0 的 APK，就是这个漏洞）
+
+### CI 教训：版本号漂移（已修复）
+
+`versionCode`/`versionName` 在 `app-android/build.gradle.kts` 里是硬编码字面量，从初始提交到 v0.1.1 从未被改过——所以打了标签、发了 Release，装出来的应用仍然报告 0.1.0，用户无法辨别自己装的是哪个版本，也无法原地升级。现在版本来源收敛到 `gradle.properties`，并由 release job 校验标签一致性。
 
 ### CI 教训：管道吞掉了构建失败（已修复）
 
@@ -72,13 +77,13 @@ realback/
 
 ```bash
 # 仅运行 core 单元测试（不需要 Android SDK）
-./gradlew :core:test
+gradle :core:test
 
 # 构建 Android APK
-./gradlew :app-android:assembleDebug
+gradle :app-android:assembleDebug
 ```
 
-> 注：Gradle wrapper (`gradlew`) 会在你首次用 Android Studio 打开项目或本地安装 Gradle 后生成并提交。
+> 注：仓库**没有**提交 Gradle wrapper（`gradlew` 不存在），所以上面的 `./gradlew` 写法会直接失败；请使用本机 `gradle`，或让 Android Studio 生成 wrapper 后再提交。CI 用 `gradle/actions/setup-gradle` 固定 **8.10.2**，本地最好用同一版本以免解析差异。Windows 命令行的完整环境搭建（含踩坑清单）见 `docs/ENVIRONMENT.md`。
 
 ## 设计红线（来自竞品 Issue 实证）
 
