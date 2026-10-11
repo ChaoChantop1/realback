@@ -63,6 +63,10 @@ jobs:
         with:
           name: realback-debug-apk
           path: app-android/build/outputs/apk/debug/*.apk
+          # Default is "warn": a green job with no deliverable. The acceptance
+          # criterion for this repo is the APK existing, so make its absence
+          # fail the run instead of passing silently.
+          if-no-files-found: error
 
       - name: Annotate errors
         if: failure()
@@ -90,6 +94,21 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
+      # gradle.properties is the single source of truth for the APK version, so
+      # the tag decides nothing about what ships. Without this gate a tag can be
+      # cut without bumping the declared version — which is exactly how v0.1.1
+      # published an APK that self-reported 0.1.0.
+      - name: Verify tag matches the declared version
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          DECLARED=$(grep -m1 '^realback.versionName=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if [ "$TAG" != "$DECLARED" ]; then
+            echo "::error::tag v$TAG does not match realback.versionName=$DECLARED in gradle.properties — bump the version before releasing"
+            exit 1
+          fi
+          echo "Release identity verified: $TAG"
+
       # Debug-signed release APK (see build.gradle.kts note) — installable,
       # must be replaced with a real keystore before any store distribution.
       - name: Build release APK
@@ -102,6 +121,7 @@ jobs:
         with:
           name: realback-release-apk
           path: app-android/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - name: Attach APK to GitHub Release
         uses: softprops/action-gh-release@v2

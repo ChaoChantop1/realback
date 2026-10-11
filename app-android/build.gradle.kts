@@ -13,13 +13,30 @@ android {
         applicationId = "com.realback.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // Release identity lives in gradle.properties and is checked against the
+        // git tag by the release CI job. These used to be hard-coded literals that
+        // nobody bumped: tag v0.1.1 shipped an APK that still self-reported
+        // 0.1.0 / versionCode 1, so installed builds were indistinguishable and
+        // could not be updated in place.
+        //
+        // A missing or malformed key fails the build instead of falling back to a
+        // default — silently producing an APK with the wrong identity is the exact
+        // defect being fixed here, so it must not be reintroduced as a fallback.
+        versionCode = findProperty("realback.versionCode")?.toString()?.trim()?.toIntOrNull()
+            ?: throw org.gradle.api.GradleException(
+                "realback.versionCode is missing from gradle.properties or is not an integer",
+            )
+        versionName = findProperty("realback.versionName")?.toString()?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: throw org.gradle.api.GradleException(
+                "realback.versionName is missing from gradle.properties",
+            )
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // CI/GitHub-release builds are debug-signed for installability.
             // Replace with a real keystore before Play Store distribution.

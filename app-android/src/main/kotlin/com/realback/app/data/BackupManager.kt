@@ -7,6 +7,7 @@ import com.realback.app.data.db.GrowthPointsEntity
 import com.realback.app.data.db.HabitEntity
 import com.realback.app.data.db.RealBackDatabase
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -113,7 +114,14 @@ object BackupManager {
     ): List<T> {
         if (array == null) return emptyList()
         return (0 until array.length()).map { i ->
-            mapper(array.getJSONObject(i))
+            try {
+                mapper(array.getJSONObject(i))
+            } catch (e: JSONException) {
+                // org.json signals missing/wrongly-typed members with an
+                // unchecked exception. import() documents BackupFormatException
+                // as its failure contract, so nothing here may leak JSONException.
+                throw BackupFormatException("malformed backup entry at index $i", e)
+            }
         }
     }
 

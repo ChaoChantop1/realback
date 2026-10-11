@@ -14,6 +14,12 @@ class HabitEngineTest {
     private fun entry(day: Long, value: Boolean = true) =
         Checkmark(habitId = 1L, epochDay = day, value = value)
 
+    private val dailyHabit = Habit(
+        name = "阅读",
+        schedule = HabitSchedule.Daily,
+        createdAtEpochDay = 0L,
+    )
+
     @Test
     fun `week start is Monday`() {
         // 2026-09-05 (epoch day 20701) is a Saturday -> Monday = 20696.
@@ -34,11 +40,41 @@ class HabitEngineTest {
         val today = 500L
         // Sparse: hits on 498..500, gap on 497.
         val entries = listOf(entry(498L), entry(499L), entry(500L))
-        assertEquals(3, HabitEngine.streak(entries, today))
+        assertEquals(3, HabitEngine.streak(dailyHabit, entries, today))
 
         // Yesterday missing (sparse) must break the streak.
         val entries2 = listOf(entry(499L))
-        assertEquals(0, HabitEngine.streak(entries2, today))
+        assertEquals(0, HabitEngine.streak(dailyHabit, entries2, today))
+    }
+
+    @Test
+    fun `interval habit streak counts scheduled days not calendar days`() {
+        // Every 2 days since creation: due on 100, 102, 104 — today is 104.
+        val habit = Habit(
+            name = "浇花",
+            schedule = HabitSchedule.IntervalDays(2),
+            createdAtEpochDay = 100L,
+        )
+        val entries = listOf(entry(100L), entry(102L), entry(104L))
+        // Regression guard: counting over the raw calendar made every non-due
+        // day a miss, so this habit could never exceed a streak of 1.
+        assertEquals(3, HabitEngine.streak(habit, entries, 104L))
+
+        // Skipping a *scheduled* day still breaks it.
+        val missed = listOf(entry(100L), entry(104L))
+        assertEquals(1, HabitEngine.streak(habit, missed, 104L))
+    }
+
+    @Test
+    fun `interval habit score is not punished by non-due days`() {
+        val habit = Habit(
+            name = "浇花",
+            schedule = HabitSchedule.IntervalDays(2),
+            createdAtEpochDay = 100L,
+        )
+        val entries = (100L..104L step 2).map { entry(it) }
+        // Every day the habit was due for is done -> full strength.
+        assertTrue(HabitEngine.score(habit, entries, 104L) > 0.99)
     }
 
     @Test
@@ -78,12 +114,14 @@ class HabitEngineTest {
     }
 
     @Test
-    fun `score over sparse data matches dense computation`() {
+    fun `new habit is not punished for days before it existed`() {
+        // Regression guard for the fixed 180-day look-back: the window starts at
+        // the earliest record, so days before the habit existed are never read
+        // as misses. A 51-day perfect history must stay very strong.
         val today = 200L
         val entries = (150L..200L).map { entry(it) }
-        val expected = HabitEngine.score(entries, today)
+        val expected = HabitEngine.score(dailyHabit, entries, today)
         assertTrue(expected in 0.0..1.0)
-        // Perfect 51-day recent history -> very strong score.
         assertTrue(expected > 0.99)
     }
 }

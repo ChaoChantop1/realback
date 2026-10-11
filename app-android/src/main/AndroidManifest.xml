@@ -12,7 +12,13 @@
     <!-- Foreground service keeping usage tracking alive across OEM battery killers -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- RECEIVE_BOOT_COMPLETED was declared here but never used: no receiver is
+         registered and no BroadcastReceiver exists, so tracking did not actually
+         resume after a reboot. Drop the declaration rather than keep a
+         Play-sensitive permission with no behaviour behind it. Re-adding reboot
+         persistence means a BOOT_COMPLETED receiver that calls
+         UsageTrackingService.start(), plus the permission back. -->
 
     <!-- M2: intervention reminders -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
