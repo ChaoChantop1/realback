@@ -66,7 +66,7 @@ echo 'sdk.dir=C:/android-demo/sdk' > local.properties
 
 export JAVA_HOME="C:\android-demo\jdk-17.0.20.1+1"
 export PATH="$JAVA_HOME/bin:$PATH"
-gradle-8.10.2/bin/gradle :core:test                  # → 32 tests, 0 failed
+gradle-8.10.2/bin/gradle :core:test                  # → 39 tests, 0 failed
 gradle-8.10.2/bin/gradle :app-android:assembleDebug  # → BUILD SUCCESSFUL
 sdk/build-tools/35.0.0/apksigner.bat verify --print-certs \
   app-android/build/outputs/apk/debug/app-android-debug.apk
@@ -133,7 +133,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 环境是否真正可用，以下面三条为准（呼应本仓库 CI 教训：**验收看产物，不看绿色对勾**）：
 
 1. `gradle :core:test` 输出 `BUILD SUCCESSFUL`，且 `core/build/test-results/test/*.xml`
-   中 `failures="0" errors="0"`（当前 7 套件 32 用例）
+   中 `failures="0" errors="0"`（当前 8 套件 39 用例）
 2. `gradle :app-android:assembleDebug` 后 `ls app-android/build/outputs/apk/debug/*.apk`
    **文件真实存在**
 3. `apksigner verify` 通过，证书为 Android Debug
