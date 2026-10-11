@@ -97,7 +97,15 @@ object HabitEngine {
         return entries.count { it.epochDay in from..todayEpochDay && it.value }
     }
 
-    /** Completion values for the trailing [days] days, oldest first (for UI dots). */
+    /**
+     * Completion values for the trailing [days] days, oldest first (for UI dots).
+     *
+     * Deliberately calendar-dense, unlike [streak] and [score]: the dot strip
+     * renders one cell per actual calendar day, so a non-due day shows as
+     * empty rather than disappearing. Expect "did I do it on that day", not
+     * "how long is my scheduled-day run"; the two disagree by design for
+     * interval habits.
+     */
     fun recentValues(entries: List<Checkmark>, todayEpochDay: Long, days: Int): List<Boolean> =
         denseValues(entries, todayEpochDay - days + 1, todayEpochDay).map { it.value }
 }

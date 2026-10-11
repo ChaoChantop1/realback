@@ -94,7 +94,12 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     private companion object {
-        /** A real backup of this app's data is a few kilobytes; 32 MB is generous. */
-        const val MAX_BACKUP_BYTES = 32L * 1024L * 1024L
+        /**
+         * A real backup of this app's data is a few kilobytes. The cap has to
+         * protect the parse as well as the read — JSONObject materialises the
+         * whole string plus its own object graph — so it stays small enough
+         * that neither step can threaten the heap.
+         */
+        const val MAX_BACKUP_BYTES = 4L * 1024L * 1024L
     }
 }

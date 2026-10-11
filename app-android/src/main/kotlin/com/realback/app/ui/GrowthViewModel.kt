@@ -53,6 +53,12 @@ class GrowthViewModel(app: Application) : AndroidViewModel(app) {
     data class FocusSession(
         val startElapsed: Long,
         val plannedMinutes: Int,
+        /**
+         * Wall-clock day the session started on. Points are banked there, not
+         * on the day the timer happens to reach zero: a session started at
+         * 23:50 is a 23:50 session even when it finishes after midnight.
+         */
+        val startEpochDay: Long,
     )
 
     private val db = (app as RealBackApp).database
@@ -124,6 +130,7 @@ class GrowthViewModel(app: Application) : AndroidViewModel(app) {
         _session.value = FocusSession(
             startElapsed = SystemClock.elapsedRealtime(),
             plannedMinutes = minutes,
+            startEpochDay = todayEpochDay(),
         )
     }
 
@@ -139,9 +146,7 @@ class GrowthViewModel(app: Application) : AndroidViewModel(app) {
         val minutes = ((elapsedSec + 59) / 60L).toInt().coerceAtMost(s.plannedMinutes)
         if (minutes > 0) {
             viewModelScope.launch {
-                // Resolved at completion time: a session started before
-                // midnight must be banked on the day it actually began.
-                val day = todayEpochDay()
+                val day = s.startEpochDay
                 db.growthDao().ensureDay(day)
                 db.growthDao().addPoints(day, minutes * GrowthEngine.POINTS_PER_FOCUS_MINUTE)
             }

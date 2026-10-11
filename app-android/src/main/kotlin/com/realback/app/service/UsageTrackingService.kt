@@ -90,42 +90,51 @@ class UsageTrackingService : Service() {
     }
 
     private suspend fun pollLoop() {
-        val app = application as RealBackApp
-        val db = app.database
-        val collector = app.usageCollector
-        val notifier = InterventionNotifier(this)
-
         while (scope.isActive) {
             try {
-                if (collector.hasUsageAccess()) {
-                    val today = LocalDate.now().toEpochDay()
-                    val rows = collector.collectEpochDay(today)
-                    if (rows.isNotEmpty()) {
-                        db.usageDao().upsertAll(rows.map { it.toEntity() })
-                    }
-
-                    val rules = db.limitRuleDao().all()
-                        .map { it.toDomain() }
-                        .associateBy { it.packageName }
-                    val decisions = InterventionEngine.evaluateAll(rows, rules)
-                    for (decision in decisions) {
-                        val alreadyReminded = remindedPrefs.getLong(decision.packageName, -1L) == today
-                        if (ReminderPolicy.shouldRemindByDecision(decision, alreadyReminded)) {
-                            notifier.remind(decision, appLabel(this, decision.packageName))
-                            remindedPrefs.edit().putLong(decision.packageName, today).apply()
-                        }
-                    }
-                }
+                pollOnce()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 // UsageStatsManager and the OEM permission screens behind it are a
                 // known source of SecurityException / IllegalStateException on
-                // custom ROMs. One bad poll must skip this cycle, not end the
-                // user's background tracking.
+                // custom ROMs. One bad poll must cost one cycle, not the user's
+                // background tracking: the whole body of the cycle is inside this
+                // guard, including the object lookups, so nothing here can end
+                // the loop. (If it could, the service would look alive while
+                // silently collecting nothing — START_STICKY never restarts a
+                // process that is still running.)
                 Log.e(TAG, "poll cycle failed; retrying next interval", e)
             }
             delay(POLL_INTERVAL_MS)
+        }
+    }
+
+    /** Collects today's usage and fires any due reminders. May throw. */
+    private suspend fun pollOnce() {
+        val app = application as RealBackApp
+        val db = app.database
+        val collector = app.usageCollector
+        val notifier = InterventionNotifier(this)
+
+        if (!collector.hasUsageAccess()) return
+
+        val today = LocalDate.now().toEpochDay()
+        val rows = collector.collectEpochDay(today)
+        if (rows.isNotEmpty()) {
+            db.usageDao().upsertAll(rows.map { it.toEntity() })
+        }
+
+        val rules = db.limitRuleDao().all()
+            .map { it.toDomain() }
+            .associateBy { it.packageName }
+        val decisions = InterventionEngine.evaluateAll(rows, rules)
+        for (decision in decisions) {
+            val alreadyReminded = remindedPrefs.getLong(decision.packageName, -1L) == today
+            if (ReminderPolicy.shouldRemindByDecision(decision, alreadyReminded)) {
+                notifier.remind(decision, appLabel(this, decision.packageName))
+                remindedPrefs.edit().putLong(decision.packageName, today).apply()
+            }
         }
     }
 
