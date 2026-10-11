@@ -22,7 +22,13 @@ object HabitEngine {
         return epochDay - ((dayOfWeek + 3L) % 7L)
     }
 
-    /** Dense completion values for [from, to] (inclusive), oldest first. */
+    /**
+     * Dense completion values for [from, to] (inclusive), oldest first.
+     *
+     * Calendar-dense: every day in the range appears, missing days as unchecked.
+     * Correct for daily habits; schedule-aware statistics use [dueDenseValues]
+     * so that days a habit was never scheduled for do not read as misses.
+     */
     fun denseValues(entries: List<Checkmark>, from: Long, to: Long): List<Checkmark> {
         if (to < from) return emptyList()
         val byDay = HashMap<Long, Boolean>(entries.size)
@@ -30,6 +36,22 @@ object HabitEngine {
         return ((from)..to).map { day ->
             Checkmark(habitId = entries.firstOrNull()?.habitId ?: 0L, epochDay = day, value = byDay[day] ?: false)
         }
+    }
+
+    /**
+     * Dense completion values restricted to the days [habit] is actually
+     * scheduled for. For [HabitSchedule.Daily] this is identical to
+     * [denseValues]; for an [HabitSchedule.IntervalDays] habit the non-due
+     * days are dropped instead of being materialised as misses.
+     */
+    fun dueDenseValues(habit: Habit, entries: List<Checkmark>, from: Long, to: Long): List<Checkmark> {
+        if (to < from) return emptyList()
+        val byDay = HashMap<Long, Boolean>(entries.size)
+        for (e in entries) byDay[e.epochDay] = e.value
+        val habitId = entries.firstOrNull()?.habitId ?: 0L
+        return (from..to)
+            .filter { dueToday(habit, it) }
+            .map { day -> Checkmark(habitId = habitId, epochDay = day, value = byDay[day] ?: false) }
     }
 
     /** Whether the habit is scheduled for the given day. */
@@ -42,22 +64,30 @@ object HabitEngine {
         is HabitSchedule.WeeklyTimes -> true // not a per-day schedule; track weekly progress
     }
 
-    /** Consecutive completed days ending at [todayEpochDay] (dense). */
-    fun streak(entries: List<Checkmark>, todayEpochDay: Long): Int {
+    /**
+     * Consecutive scheduled days completed, counting back from today.
+     *
+     * Only days the habit is due for are considered: an every-2-days habit done
+     * on every one of its scheduled days has a real streak, whereas counting
+     * over the raw calendar would break it at every non-due day and cap such
+     * habits at a streak of 1.
+     */
+    fun streak(habit: Habit, entries: List<Checkmark>, todayEpochDay: Long): Int {
         val from = todayEpochDay - HISTORY_DAYS + 1
-        val dense = denseValues(entries, from, todayEpochDay)
+        val dense = dueDenseValues(habit, entries, from, todayEpochDay)
         return HabitScore.currentStreak(dense)
     }
 
     /**
      * Habit strength in [0.0, 1.0]. The dense window starts at the earliest
      * recorded entry (the habit's lifetime) — days before the habit existed
-     * must not count as misses, or new habits would be punished.
+     * must not count as misses, or new habits would be punished. Days the
+     * habit is not scheduled for are likewise skipped, not scored as misses.
      */
-    fun score(entries: List<Checkmark>, todayEpochDay: Long): Double {
+    fun score(habit: Habit, entries: List<Checkmark>, todayEpochDay: Long): Double {
         if (entries.isEmpty()) return 0.0
         val from = entries.minOf { it.epochDay }
-        val dense = denseValues(entries, from, todayEpochDay)
+        val dense = dueDenseValues(habit, entries, from, todayEpochDay)
         return HabitScore.compute(dense)
     }
 

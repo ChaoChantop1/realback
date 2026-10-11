@@ -1,5 +1,7 @@
 package com.realback.core.habit
 
+import kotlin.math.pow
+
 /**
  * Habit strength scoring.
  *
@@ -25,7 +27,9 @@ object HabitScore {
         for (entry in checkmarks) {
             val ageDays = (lastDay - entry.epochDay).toDouble()
             // Exponential decay: recent checkmarks matter more; old misses fade out.
-            val weight = Math.pow(0.5, ageDays / HALF_LIFE_DAYS)
+            // kotlin.math.pow, not Math.pow: this module must compile under
+            // Kotlin/Native for the Phase 4 iOS port.
+            val weight = 0.5.pow(ageDays / HALF_LIFE_DAYS)
             denominator += weight
             if (entry.value) numerator += weight
         }

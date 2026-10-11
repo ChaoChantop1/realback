@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.realback.app.ui
 
 import android.app.Application
@@ -7,13 +9,14 @@ import com.realback.app.RealBackApp
 import com.realback.app.data.db.toDomain
 import com.realback.app.data.db.toEntity
 import com.realback.app.util.appLabel
+import com.realback.app.util.todayEpochDayFlow
 import com.realback.core.usage.AppLimitRule
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 /**
  * M2 limit settings: today's app usage joined with the user's limit rules.
@@ -39,28 +42,31 @@ class LimitsViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     private val db = (app as RealBackApp).database
-    private val todayEpochDay: Long = LocalDate.now().toEpochDay()
 
-    val state: StateFlow<State> = combine(
-        db.usageDao().observeForDay(todayEpochDay),
-        db.limitRuleDao().observeAll(),
-    ) { usage, rules ->
-        val ruleMap = rules.associateBy { it.packageName }
-        State(
-            loaded = true,
-            rows = usage
-                .filter { it.foregroundMillis > 0L }
-                .sortedByDescending { it.foregroundMillis }
-                .map { entity ->
-                    LimitRow(
-                        label = appLabel(getApplication(), entity.packageName),
-                        packageName = entity.packageName,
-                        todayMillis = entity.foregroundMillis,
-                        limitMillis = ruleMap[entity.packageName]?.dailyLimitMillis ?: 0L,
-                    )
-                },
-        )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
+    val state: StateFlow<State> = todayEpochDayFlow()
+        .flatMapLatest { today ->
+            combine(
+                db.usageDao().observeForDay(today),
+                db.limitRuleDao().observeAll(),
+            ) { usage, rules ->
+                val ruleMap = rules.associateBy { it.packageName }
+                State(
+                    loaded = true,
+                    rows = usage
+                        .filter { it.foregroundMillis > 0L }
+                        .sortedByDescending { it.foregroundMillis }
+                        .map { entity ->
+                            LimitRow(
+                                label = appLabel(getApplication(), entity.packageName),
+                                packageName = entity.packageName,
+                                todayMillis = entity.foregroundMillis,
+                                limitMillis = ruleMap[entity.packageName]?.dailyLimitMillis ?: 0L,
+                            )
+                        },
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), State())
 
     /** minutes <= 0 clears the rule. */
     fun setLimit(packageName: String, minutes: Int) {
