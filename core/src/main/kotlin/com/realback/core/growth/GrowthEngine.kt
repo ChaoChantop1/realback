@@ -29,6 +29,26 @@ object GrowthEngine {
         input.focusMinutes * POINTS_PER_FOCUS_MINUTE + input.habitCheckmarks * POINTS_PER_CHECKMARK
 
     /**
+     * Inverse of [computeDay]: recover today's focus minutes from the day's
+     * *merged* points total.
+     *
+     * The `growth_points` table keeps one merged number per day (1 point per
+     * focus minute plus 10 per checkmark), so the checkmark contribution must
+     * be removed before the remainder can be read as focus minutes. Dividing
+     * the merged total by [POINTS_PER_FOCUS_MINUTE] directly would count every
+     * check-in as 10 minutes of focus — inflating the displayed figure and
+     * handing out the focus achievements for free.
+     *
+     * @param dayPoints merged points recorded for the day (focus + checkmarks).
+     * @param checkmarksToday habits actually checked today (net of untoggles).
+     */
+    fun focusMinutesToday(dayPoints: Double, checkmarksToday: Int): Int {
+        val fromCheckmarks = checkmarksToday * POINTS_PER_CHECKMARK
+        val fromFocus = (dayPoints - fromCheckmarks).coerceAtLeast(0.0)
+        return (fromFocus / POINTS_PER_FOCUS_MINUTE).toInt()
+    }
+
+    /**
      * Level curve: each level requires 20% more points than the previous one.
      * Level 1 starts at 0, level 2 at 100 points, level 3 at 220, ...
      */
