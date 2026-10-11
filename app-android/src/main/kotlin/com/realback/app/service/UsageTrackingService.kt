@@ -6,9 +6,11 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.realback.app.R
 import com.realback.app.RealBackApp
@@ -18,6 +20,8 @@ import com.realback.app.intervention.InterventionNotifier
 import com.realback.app.util.appLabel
 import com.realback.core.usage.InterventionEngine
 import com.realback.core.usage.ReminderPolicy
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,14 +41,33 @@ import java.time.LocalDate
  *
  * Poll cadence: 5 minutes. Each poll REPLACEs today's aggregates, so a
  * killed-and-restarted service self-heals with the next poll; interventions
- * fire at most once per app per day (core ReminderPolicy).
+ * fire at most once per app per day (core ReminderPolicy). That date is
+ * persisted, so a process restart cannot re-remind the same day.
  */
 class UsageTrackingService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /**
+     * Safety net for anything that escapes [pollLoop]'s own guarding: without a
+     * handler, an uncaught exception in this scope reaches the thread's default
+     * handler and kills the whole process — and START_STICKY would resurrect the
+     * service straight into the same crash. Declared before [scope], which
+     * consumes it during initialisation.
+     */
+    private val serviceExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e(TAG, "usage poll loop died; tracking continues on next start", throwable)
+    }
 
-    /** package -> epochDay it was last reminded on; reset naturally by date. */
-    private val lastReminded = HashMap<String, Long>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + serviceExceptionHandler)
+
+    /**
+     * Last reminded epoch day per package, persisted across process death.
+     * An in-memory map here would silently break the "one reminder per app per
+     * day" promise every time the OEM kills and restarts the service, turning a
+     * nudge into spam.
+     */
+    private val remindedPrefs: SharedPreferences by lazy {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -73,24 +96,34 @@ class UsageTrackingService : Service() {
         val notifier = InterventionNotifier(this)
 
         while (scope.isActive) {
-            if (collector.hasUsageAccess()) {
-                val today = LocalDate.now().toEpochDay()
-                val rows = collector.collectEpochDay(today)
-                if (rows.isNotEmpty()) {
-                    db.usageDao().upsertAll(rows.map { it.toEntity() })
-                }
+            try {
+                if (collector.hasUsageAccess()) {
+                    val today = LocalDate.now().toEpochDay()
+                    val rows = collector.collectEpochDay(today)
+                    if (rows.isNotEmpty()) {
+                        db.usageDao().upsertAll(rows.map { it.toEntity() })
+                    }
 
-                val rules = db.limitRuleDao().all()
-                    .map { it.toDomain() }
-                    .associateBy { it.packageName }
-                val decisions = InterventionEngine.evaluateAll(rows, rules)
-                for (decision in decisions) {
-                    val alreadyReminded = lastReminded[decision.packageName] == today
-                    if (ReminderPolicy.shouldRemindByDecision(decision, alreadyReminded)) {
-                        notifier.remind(decision, appLabel(this, decision.packageName))
-                        lastReminded[decision.packageName] = today
+                    val rules = db.limitRuleDao().all()
+                        .map { it.toDomain() }
+                        .associateBy { it.packageName }
+                    val decisions = InterventionEngine.evaluateAll(rows, rules)
+                    for (decision in decisions) {
+                        val alreadyReminded = remindedPrefs.getLong(decision.packageName, -1L) == today
+                        if (ReminderPolicy.shouldRemindByDecision(decision, alreadyReminded)) {
+                            notifier.remind(decision, appLabel(this, decision.packageName))
+                            remindedPrefs.edit().putLong(decision.packageName, today).apply()
+                        }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // UsageStatsManager and the OEM permission screens behind it are a
+                // known source of SecurityException / IllegalStateException on
+                // custom ROMs. One bad poll must skip this cycle, not end the
+                // user's background tracking.
+                Log.e(TAG, "poll cycle failed; retrying next interval", e)
             }
             delay(POLL_INTERVAL_MS)
         }
@@ -122,8 +155,10 @@ class UsageTrackingService : Service() {
             .build()
 
     companion object {
+        private const val TAG = "UsageTrackingService"
         private const val CHANNEL_ID = "usage_tracking"
         private const val NOTIFICATION_ID = 1
+        private const val PREFS_NAME = "usage_reminders"
         private const val POLL_INTERVAL_MS = 5L * 60L * 1000L
 
         fun start(context: Context) {

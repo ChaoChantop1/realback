@@ -16,13 +16,16 @@ import java.time.ZoneId
  */
 class UsageStatsCollector(private val context: Context) {
 
-    private val usageStatsManager: UsageStatsManager =
-        context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    // getSystemService can return null on some OEM ROMs when the usage stats
+    // service is disabled; a hard cast there is an instant NPE, so callers must
+    // cope with "usage data unavailable" instead of crashing the process.
+    private val usageStatsManager: UsageStatsManager? =
+        context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
 
     /** PACKAGE_USAGE_STATS is an AppOps-gated special permission, not a runtime one. */
     @Suppress("DEPRECATION")
     fun hasUsageAccess(): Boolean {
-        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
         val mode = appOps.checkOpNoThrow(
             AppOpsManager.OPSTR_GET_USAGE_STATS,
             android.os.Process.myUid(),
@@ -33,16 +36,21 @@ class UsageStatsCollector(private val context: Context) {
 
     /**
      * Collect the usage aggregate of one epoch day (system timezone).
-     * Returns one [AppUsageDay] per package with non-zero foreground time.
+     * Returns one [AppUsageDay] per package with non-zero foreground time, or
+     * an empty list when the usage service is unavailable.
      */
     fun collectEpochDay(epochDay: Long): List<AppUsageDay> {
+        // Some OEM implementations throw SecurityException / IllegalStateException
+        // here even after hasUsageAccess() said yes. Callers treat a throw as a
+        // skipped poll, never as a reason to kill the tracking service.
+        val manager = usageStatsManager ?: return emptyList()
         val zone: ZoneId = ZoneId.systemDefault()
         val startMillis = LocalDate.ofEpochDay(epochDay).atStartOfDay(zone)
             .toInstant().toEpochMilli()
         val endMillis = startMillis + MILLIS_PER_DAY
 
         val openCounts = countOpens(startMillis, endMillis)
-        val daily = usageStatsManager.queryUsageStats(
+        val daily = manager.queryUsageStats(
             UsageStatsManager.INTERVAL_DAILY,
             startMillis,
             endMillis,
@@ -64,7 +72,8 @@ class UsageStatsCollector(private val context: Context) {
     @Suppress("DEPRECATION")
     private fun countOpens(startMillis: Long, endMillis: Long): Map<String, Int> {
         val counts = HashMap<String, Int>()
-        val events = usageStatsManager.queryEvents(startMillis, endMillis)
+        val manager = usageStatsManager ?: return counts
+        val events = manager.queryEvents(startMillis, endMillis) ?: return counts
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
